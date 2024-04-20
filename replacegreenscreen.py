@@ -14,6 +14,14 @@ def smooth_mask(mask, kernel_size):
     return smoothed_mask
 
 
+def get_border_mask(mask, thickness=1):
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    border_mask = np.zeros_like(mask)
+    cv2.drawContours(border_mask, contours, -1, (255), thickness=thickness)
+
+    return border_mask
+
+
 def get_bg_mask_greenscreen(inp, thres=100, thres2=100):
     # Create a mask of the green screen
     lower_green = (0, thres, 0)
@@ -23,29 +31,19 @@ def get_bg_mask_greenscreen(inp, thres=100, thres2=100):
     return mask
 
 
-def get_bg_mask_stronger(inp):
-    # for bottom 20% of the image, use bigger range of green, cuz shadow
-    strong_mask = get_bg_mask_greenscreen(inp, 80)
-
-    mask_bottom_20 = np.zeros_like(strong_mask)
-    mask_bottom_20[int(strong_mask.shape[0] * 0.8) :, :] = 1
-
-    mask = np.bitwise_and(strong_mask, mask_bottom_20)
-    return mask
+def get_shadows_mask(inp):
+    return get_bg_mask_greenscreen(inp, 40, 15)
 
 
-def remove_green_artifacts(inp, bg_mask):
-    # here, we use a mask that selects anything that even thinks about being green
+def unshrekify(inp):
     mask = get_bg_mask_greenscreen(inp, 30, 100)
-
-    # filter pixels that are too close to black
-    mask = np.bitwise_and(mask, np.all(inp > 25, axis=-1))
 
     # average the two channels, which effectively "cancels" the green without
     # changing the overall brightness of the pixel
     avg = (inp[mask != 0, 0] + inp[mask != 0, 2]) / 2
 
     inp[mask != 0, 1] = avg  # green = avg red and blue
+    # inp[mask != 0] = [0, 0, 255]
 
     return inp
 
@@ -77,23 +75,29 @@ def replace_green_screen(inputimg, bg, outputimg):
     # rotate image, cuz it's actually stored rotated, but an exif tag displays it not-rotated
     inp = cv2.rotate(inp, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
-    # smooth it a bit so stray pixels are removed
     mask1 = smooth_mask(get_bg_mask_greenscreen(inp), 2)
+    # apply mask 1, it's pretty safe
+    # but it leaves lots of artifacts
+    inp[mask1 != 0] = bg[mask1 != 0]
 
-    # stronger mask for the bottom 20% of the image, also smooth it
-    mask2 = smooth_mask(get_bg_mask_stronger(inp), 2)
+    mask2 = smooth_mask(get_shadows_mask(inp), 1)
+
+    inp[mask2 != 0] = bg[mask2 != 0]
+
+    inp = unshrekify(inp)
 
     bg_mask = np.bitwise_or(mask1, mask2)
-    inp = remove_green_artifacts(inp, bg_mask)
 
-    # inp[bg_mask != 0] = [0, 0, 255]
+    # border_mask = get_border_mask(bg_mask, 5)
+
     # apply the background to the image
-    inp[bg_mask != 0] = bg[bg_mask != 0]
+    # inp[mask2 != 0] = [0, 0, 255]
+    # inp[bg_mask != 0] = bg[bg_mask != 0]
 
     # apply the background again, but this time with smoothing
     # this alone doesn't suffice, cuz it leaves green artifacts
     # so we do two passes
-    inp = apply_mask_smoother(inp, bg, bg_mask)
+    inp = apply_mask_smoother(inp, bg, get_border_mask(bg_mask))
 
     # ensure that pixel values are within valid range [0, 255] (just in case)
     inp = np.clip(inp, 0, 255)
