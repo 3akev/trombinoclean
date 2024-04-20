@@ -41,20 +41,11 @@ def remove_green_artifacts(inp, bg_mask):
     # filter pixels that are too close to black
     mask = np.bitwise_and(mask, np.all(inp > 25, axis=-1))
 
-    # mask = np.bitwise_and(mask, get_border_mask(bg_mask, 10))
-
     # average the two channels, which effectively "cancels" the green without
     # changing the overall brightness of the pixel
     avg = (inp[mask != 0, 0] + inp[mask != 0, 2]) / 2
 
-    # Create a mask for when red and blue are too different
-    # diff_mask = abs(inp[mask != 0, 0] - inp[mask != 0, 2]) > 50
-
-    # Only update 'avg' where red and blue are not too different
-    # avg[~diff_mask] = inp[mask != 0, 1][~diff_mask]
-
     inp[mask != 0, 1] = avg  # green = avg red and blue
-    # inp[mask != 0] = np.full_like(inp[mask != 0], (0, 0, 255))
 
     return inp
 
@@ -65,19 +56,18 @@ def resize_image(inp, width):
     return cv2.resize(inp, dim, interpolation=cv2.INTER_AREA)
 
 
-def get_border_mask(mask, border_size):
-    # Define the structuring element (kernel) for dilation
-    # Here we use a square kernel. You can also use a circular kernel or any other shape.
-    kernel = np.ones((border_size, border_size), np.uint8)
+def apply_mask_smoother(inp, bg, bg_mask):
+    # Blur the mask to create a smooth transition
+    bg_mask = cv2.GaussianBlur(bg_mask, (3, 3), 0)
 
-    # Dilate the mask to create a border around it
-    border_mask = cv2.dilate(mask, kernel, iterations=1)
+    # Normalize the mask to keep its values between 0 and 1
+    bg_mask = bg_mask / 255.0
 
-    # Subtract the original mask from the dilated mask
-    # This leaves only the border
-    border_mask = border_mask - mask
+    # Expand the dimensions of bg_mask to match the shape of inp
+    bg_mask = np.stack([bg_mask] * 3, axis=-1)
 
-    return border_mask
+    inp = (1.0 - bg_mask) * inp + bg_mask * bg
+    return inp
 
 
 def replace_green_screen(inputimg, bg, outputimg):
@@ -96,14 +86,16 @@ def replace_green_screen(inputimg, bg, outputimg):
     bg_mask = np.bitwise_or(mask1, mask2)
     inp = remove_green_artifacts(inp, bg_mask)
 
-    border_mask = get_border_mask(bg_mask, 10)
-
-    # replace white with bg
-    # mask = np.all(inp == [255, 255, 255], axis=-1)
     # inp[bg_mask != 0] = [0, 0, 255]
+    # apply the background to the image
     inp[bg_mask != 0] = bg[bg_mask != 0]
 
-    # ensure that pixel values are within valid range [0, 255]
+    # apply the background again, but this time with smoothing
+    # this alone doesn't suffice, cuz it leaves green artifacts
+    # so we do two passes
+    inp = apply_mask_smoother(inp, bg, bg_mask)
+
+    # ensure that pixel values are within valid range [0, 255] (just in case)
     inp = np.clip(inp, 0, 255)
 
     cv2.imwrite(outputimg, inp)
