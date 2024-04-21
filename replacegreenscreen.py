@@ -10,7 +10,7 @@ def smooth_mask(mask, kernel_size):
     kernel = np.ones((kernel_size, kernel_size), np.uint8)
 
     # Perform opening (erosion followed by dilation)
-    smoothed_mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    smoothed_mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=3)
 
     return smoothed_mask
 
@@ -29,11 +29,30 @@ def get_bg_mask_greenscreen(inp, thres=100, thres2=100):
     upper_green = (thres2, 255, thres2)
 
     mask = cv2.inRange(inp, lower_green, upper_green)
-    return mask
+
+    # make sure green > red and blue
+    mask = np.logical_and(mask, inp[:, :, 1] > inp[:, :, 0])
+    mask = np.logical_and(mask, inp[:, :, 1] > inp[:, :, 2])
+    return mask.astype("uint8")
 
 
 def get_shadows_mask(inp):
-    return get_bg_mask_greenscreen(inp, 40, 15)
+    # shadows can be blue-ish than red-ish
+    lower_green = (0, 50, 0)
+    upper_green = (100, 120, 40)
+
+    mask = cv2.inRange(inp, lower_green, upper_green)
+
+    # Find connected components
+    # num_labels, labels = cv2.connectedComponents(stronk)
+    #
+    # # Count pixels in each component
+    # counts = np.bincount(labels.flatten())
+    #
+    # return [
+    #     np.where(labels == lbl, 1, 0).astype("uint8") for lbl in counts[counts > 100]
+    # ]
+    return mask
 
 
 def unshrekify(inp):
@@ -57,7 +76,7 @@ def resize_image(inp, width):
 
 def apply_mask_smoother(inp, bg, bg_mask):
     # Blur the mask to create a smooth transition
-    bg_mask = cv2.GaussianBlur(bg_mask, (3, 3), 0)
+    bg_mask = cv2.GaussianBlur(bg_mask, (1, 1), 0)
 
     # Normalize the mask to keep its values between 0 and 1
     bg_mask = bg_mask / 255.0
@@ -75,24 +94,36 @@ def replace_green_screen(inputimg, bg, outputimg):
 
     # rotate image, cuz it's actually stored rotated, but an exif tag displays it not-rotated
     inp = cv2.rotate(inp, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    dark_green = (1, 91, 27)
+
+    # calc mean green value of the image
+    # green = inp[:2, :, 1].mean()
+    # sd = inp[:2, :, 1].std()
+    # print("Mean green value:", green)
 
     mask1 = smooth_mask(get_bg_mask_greenscreen(inp), 2)
     # apply mask 1, it's pretty safe
     # but it leaves lots of artifacts
     inp[mask1 != 0] = bg[mask1 != 0]
 
-    mask2 = smooth_mask(get_shadows_mask(inp), 1)
+    # blocks = [x for x in get_shadows_mask(inp) if np.any(x != 0)]
+    # shadow_mask = np.zeros_like(mask1)
+    # for block in blocks:
+    #     avg_color = inp[block != 0].mean(axis=0)
+    #     if avg_color[1] > (avg_color[0] + avg_color[2]):  # VERY GREEN
+    #         mask2 = smooth_mask(block, 1)
+    #         inp[mask2 != 0] = bg[mask2 != 0]
+    #         shadow_mask += mask2
 
-    inp[mask2 != 0] = [0, 0, 255]  # bg[mask2 != 0]
+    shadow_mask = smooth_mask(get_shadows_mask(inp), 3)
 
     # inp = unshrekify(inp)
 
-    bg_mask = np.bitwise_or(mask1, mask2)
-
-    # border_mask = get_border_mask(bg_mask, 5)
+    bg_mask = np.bitwise_or(mask1, shadow_mask)
 
     # apply the background to the image
     # inp[mask2 != 0] = [0, 0, 255]
+    inp[shadow_mask != 0] = [0, 0, 255]
     # inp[bg_mask != 0] = bg[bg_mask != 0]
 
     # apply the background again, but this time with smoothing
