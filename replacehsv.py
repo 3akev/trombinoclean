@@ -3,20 +3,7 @@ import multiprocessing
 import cv2
 import os
 
-
-def get_bg_mask_greenscreen(inp, lower=45, upper=100):
-    # Create a mask of the green screen
-    return cv2.inRange(inp, (lower, 100, 70), (upper, 255, 255))
-
-
-def get_shadows_mask(inp, lower=45, upper=100):
-    # Create a mask of the shadow-y green screen areas
-    return cv2.inRange(inp, (lower, 229, 35), (upper, 255, 150))
-
-
-def get_shrek_mask(inp, lower=35, upper=75):
-    # Create a mask of ogre skin
-    return cv2.inRange(inp, (lower, 10, 10), (upper, 255, 120))
+CROP_PERCENT = 15
 
 
 def unshrekify(mask, bgr):
@@ -45,11 +32,21 @@ def replace_green_screen(inputimg, bg, outputimg):
     # rotate image, cuz it's actually stored rotated, but an exif tag displays it not-rotated
     bgr = cv2.rotate(bgr, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
+    if CROP_PERCENT != 0:
+        bgr = crop_image_center(bgr, CROP_PERCENT)
+
+    # convert to hsv for easier color selection
     hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
 
-    # Create a mask for the green screen areas
-    mask = get_bg_mask_greenscreen(hsv, 45, 100)
-    shadow_mask = get_shadows_mask(hsv, 45, 100)
+    # Define the range of green screen color
+    hue_low = 45
+    hue_high = 100
+
+    # Create a mask of the green screen
+    mask = cv2.inRange(hsv, (hue_low, 100, 70), (hue_high, 255, 255))
+
+    # Create a mask of the shadow-y green screen areas
+    shadow_mask = cv2.inRange(hsv, (hue_low, 229, 35), (hue_high, 255, 150))
 
     # bgr[mask != 0] = [0, 0, 255]
     # bgr[shadow_mask != 0] = [0, 0, 255]
@@ -57,11 +54,14 @@ def replace_green_screen(inputimg, bg, outputimg):
     mask = mask | shadow_mask
     bgr[mask != 0] = bg[mask != 0]
 
-    shrek_mask = get_shrek_mask(hsv) & ~mask
+    # Create a mask of ogre skin
+    shrek_mask = cv2.inRange(hsv, (35, 10, 10), (75, 255, 120))
+    # exclude the green screen from the mask
+    shrek_mask = shrek_mask & ~mask
+
     # bgr[shrek_mask != 0] = [0, 0, 255]
     unshrekify(shrek_mask, bgr)
 
-    bgr = crop_image_center(bgr, 12)
     bgr = resize_image(bgr, 1080)
 
     cv2.imwrite(outputimg, bgr)
@@ -72,6 +72,8 @@ def replace_green_screen(inputimg, bg, outputimg):
 lsphotos = os.listdir("photos")
 bg = cv2.imread("bg_big.jpg")
 bg = cv2.rotate(bg, cv2.ROTATE_90_COUNTERCLOCKWISE)
+if CROP_PERCENT != 0:
+    bg = crop_image_center(bg, CROP_PERCENT)
 i = multiprocessing.Value("i", 0)
 
 
