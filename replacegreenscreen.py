@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+import multiprocessing
 import cv2
 import os
 import numpy as np
@@ -82,9 +83,9 @@ def replace_green_screen(inputimg, bg, outputimg):
 
     mask2 = smooth_mask(get_shadows_mask(inp), 1)
 
-    inp[mask2 != 0] = bg[mask2 != 0]
+    inp[mask2 != 0] = [0, 0, 255]  # bg[mask2 != 0]
 
-    inp = unshrekify(inp)
+    # inp = unshrekify(inp)
 
     bg_mask = np.bitwise_or(mask1, mask2)
 
@@ -104,21 +105,34 @@ def replace_green_screen(inputimg, bg, outputimg):
 
     cv2.imwrite(outputimg, inp)
 
+    return inputimg
+
+
+lsphotos = os.listdir("photos")
+bg = cv2.imread("bg.jpg")
+bg = cv2.rotate(bg, cv2.ROTATE_90_COUNTERCLOCKWISE)
+i = multiprocessing.Value("i", 0)
+
+
+def thread_job(file):
+    global i
+    filepath = os.path.join("photos", file)
+    outfile = os.path.join("output", file)
+    replace_green_screen(filepath, bg, outfile)
+
+    with i.get_lock():
+        i.value += 1
+        count = i.value
+    print("Processed", file, f"[{count}/{len(lsphotos)}]")
+
 
 def main():
-    lsphotos = os.listdir("photos")
-    bg = cv2.imread("bg.jpg")
-    bg = cv2.rotate(bg, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    for i, file in enumerate(lsphotos):
-        print("Processing", file, f"[{i+1}/{len(lsphotos)}]")
-        filepath = os.path.join("photos", file)
-        outfile = os.path.join("output", file)
-        replace_green_screen(filepath, bg, outfile)
+    with multiprocessing.Pool() as pool:
+        pool.map(thread_job, lsphotos)
+
     print("Done")
 
 
 if __name__ == "__main__":
-    # bg = cv2.imread("bg.jpg")
-    # bg = cv2.rotate(bg, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    # replace_green_screen("./photos/DSC09572.JPG", bg, "output.jpg")
+    # thread_job("DSC09551.JPG")
     main()
