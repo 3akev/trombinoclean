@@ -7,7 +7,7 @@ import numpy as np
 
 def get_bg_mask_greenscreen(inp, lower=45, upper=100):
     # Create a mask of the green screen
-    lower_green = np.array([lower, 100, 70])
+    lower_green = np.array([lower, 130, 70])
     upper_green = np.array([upper, 255, 255])
 
     # Create a binary mask where the green pixels are white and the non-green pixels are black
@@ -26,10 +26,20 @@ def get_shadows_mask(inp, lower=45, upper=100):
     return mask
 
 
+def get_reflections_mask(inp, lower=45, upper=100):
+    lower_green = np.array([lower, 70, 165])
+    upper_green = np.array([upper, 140, 255])
+
+    # Create a binary mask where the green pixels are white and the non-green pixels are black
+    mask = cv2.inRange(inp, lower_green, upper_green)
+
+    return mask
+
+
 def get_shrek_mask(inp, lower=35, upper=75):
     # Create a mask of the green screen
     lower_green = np.array([lower, 10, 10])
-    upper_green = np.array([upper, 120, 120])
+    upper_green = np.array([upper, 255, 120])
 
     # Create a binary mask where the green pixels are white and the non-green pixels are black
     mask = cv2.inRange(inp, lower_green, upper_green)
@@ -61,14 +71,16 @@ def replace_green_screen(inputimg, bg, outputimg):
     # Create a mask for the green screen areas
     mask = get_bg_mask_greenscreen(hsv, 45, 100)
     shadow_mask = get_shadows_mask(hsv, 45, 100)
+    reflections_mask = get_reflections_mask(hsv, 45, 100)
 
+    # bgr[reflections_mask != 0] = [0, 0, 255]
     # bgr[mask != 0] = [0, 0, 255]
     # bgr[shadow_mask != 0] = [0, 0, 255]
 
-    mask = mask | shadow_mask
+    mask = (mask | shadow_mask) & ~reflections_mask
     bgr[mask != 0] = bg[mask != 0]
 
-    shrek_mask = get_shrek_mask(hsv)
+    shrek_mask = get_shrek_mask(hsv) & ~mask
     # bgr[shrek_mask != 0] = [0, 0, 255]
     unshrekify(shrek_mask, bgr)
 
@@ -103,5 +115,5 @@ def main():
 
 
 if __name__ == "__main__":
-    thread_job("DSC09561.JPG")
-    # main()
+    # thread_job("DSC09552.JPG")
+    main()
