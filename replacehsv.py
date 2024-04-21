@@ -5,9 +5,9 @@ import os
 import numpy as np
 
 
-def get_bg_mask_greenscreen(inp, lower=35, upper=75):
+def get_bg_mask_greenscreen(inp, lower=45, upper=100):
     # Create a mask of the green screen
-    lower_green = np.array([lower, 70, 70])
+    lower_green = np.array([lower, 100, 70])
     upper_green = np.array([upper, 255, 255])
 
     # Create a binary mask where the green pixels are white and the non-green pixels are black
@@ -16,7 +16,7 @@ def get_bg_mask_greenscreen(inp, lower=35, upper=75):
     return mask
 
 
-def get_shadows_mask(inp, lower=35, upper=100):
+def get_shadows_mask(inp, lower=45, upper=100):
     lower_green = np.array([lower, 229, 35])
     upper_green = np.array([upper, 255, 150])
 
@@ -62,14 +62,15 @@ def replace_green_screen(inputimg, bg, outputimg):
     mask = get_bg_mask_greenscreen(hsv, 45, 100)
     shadow_mask = get_shadows_mask(hsv, 45, 100)
 
-    mask = mask | shadow_mask
+    # bgr[mask != 0] = [0, 0, 255]
     # bgr[shadow_mask != 0] = [0, 0, 255]
 
+    mask = mask | shadow_mask
     bgr[mask != 0] = bg[mask != 0]
 
-    # shrek_mask = get_shrek_mask(hsv)
+    shrek_mask = get_shrek_mask(hsv)
     # bgr[shrek_mask != 0] = [0, 0, 255]
-    # unshrekify(shrek_mask, bgr)
+    unshrekify(shrek_mask, bgr)
 
     cv2.imwrite(outputimg, bgr)
 
@@ -102,5 +103,5 @@ def main():
 
 
 if __name__ == "__main__":
-    # thread_job("DSC09551.JPG")
-    main()
+    thread_job("DSC09561.JPG")
+    # main()
