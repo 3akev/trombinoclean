@@ -2,52 +2,42 @@
 import multiprocessing
 import cv2
 import os
-import numpy as np
+
 
 def get_bg_mask_greenscreen(inp, lower=45, upper=100):
     # Create a mask of the green screen
-    lower_green = np.array([lower, 100, 70])
-    upper_green = np.array([upper, 255, 255])
-
-    # Create a binary mask where the green pixels are white and the non-green pixels are black
-    mask = cv2.inRange(inp, lower_green, upper_green)
-
-    return mask
+    return cv2.inRange(inp, (lower, 100, 70), (upper, 255, 255))
 
 
 def get_shadows_mask(inp, lower=45, upper=100):
-    lower_green = np.array([lower, 229, 35])
-    upper_green = np.array([upper, 255, 150])
-
-    # Create a binary mask where the green pixels are white and the non-green pixels are black
-    mask = cv2.inRange(inp, lower_green, upper_green)
-
-    return mask
+    # Create a mask of the shadow-y green screen areas
+    return cv2.inRange(inp, (lower, 229, 35), (upper, 255, 150))
 
 
 def get_shrek_mask(inp, lower=35, upper=75):
-    # Create a mask of the green screen
-    lower_green = np.array([lower, 10, 10])
-    upper_green = np.array([upper, 255, 120])
-
-    # Create a binary mask where the green pixels are white and the non-green pixels are black
-    mask = cv2.inRange(inp, lower_green, upper_green)
-
-    return mask
+    # Create a mask of ogre skin
+    return cv2.inRange(inp, (lower, 10, 10), (upper, 255, 120))
 
 
 def unshrekify(mask, bgr):
     # average the two channels, which effectively "cancels" the green without
     # changing the overall brightness of the pixel
-    avg = (bgr[mask != 0, 0] + bgr[mask != 0, 2]) / 2
-
-    bgr[mask != 0, 1] = avg  # green = avg red and blue
+    bgr[mask != 0, 1] = (bgr[mask != 0, 0] + bgr[mask != 0, 2]) / 2
 
 
 def resize_image(inp, width):
     ratio = width / inp.shape[1]
     dim = (width, int(inp.shape[0] * ratio))
     return cv2.resize(inp, dim, interpolation=cv2.INTER_AREA)
+
+
+def crop_image_center(inp, percent=20):
+    width, height = inp.shape[1], inp.shape[0]
+    left = width * percent // 100
+    top = height * percent // 100
+    right = width * (100 - percent) // 100
+    bottom = height * (100 - percent) // 100
+    return inp[top:bottom, left:right]
 
 
 def replace_green_screen(inputimg, bg, outputimg):
@@ -63,13 +53,16 @@ def replace_green_screen(inputimg, bg, outputimg):
 
     # bgr[mask != 0] = [0, 0, 255]
     # bgr[shadow_mask != 0] = [0, 0, 255]
-    
-    mask = (mask | shadow_mask)
+
+    mask = mask | shadow_mask
     bgr[mask != 0] = bg[mask != 0]
 
     shrek_mask = get_shrek_mask(hsv) & ~mask
     # bgr[shrek_mask != 0] = [0, 0, 255]
     unshrekify(shrek_mask, bgr)
+
+    bgr = crop_image_center(bgr, 12)
+    bgr = resize_image(bgr, 1080)
 
     cv2.imwrite(outputimg, bgr)
 
