@@ -21,7 +21,7 @@ def pick_color(event, x, y, flags, param):
 
 
 # Load an image
-image = cv2.imread("./photos/DSC09552.JPG")
+image = cv2.imread("./photos/DSC09572.JPG")
 
 # Resize the image to 1080p
 image = resize_image(image, 1080)
