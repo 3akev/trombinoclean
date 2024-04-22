@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import sys
 
 
 def resize_image(inp, width):
@@ -21,7 +22,7 @@ def pick_color(event, x, y, flags, param):
 
 
 # Load an image
-image = cv2.imread("./photos/DSC09572.JPG")
+image = cv2.imread(sys.argv[1])
 
 # Resize the image to 1080p
 image = resize_image(image, 1080)

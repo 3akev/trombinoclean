@@ -8,10 +8,12 @@ CROP_H_PERCENT = 20
 X_CENTER = 0
 Y_CENTER = -500
 
-def unshrekify(mask, bgr):
-    # average the two channels, which effectively "cancels" the green without
-    # changing the overall brightness of the pixel
-    bgr[mask != 0, 1] = (bgr[mask != 0, 0] + bgr[mask != 0, 2]) / 2
+
+def unshrekify2(mask, bgr):
+    # weighted average that still leaves some green
+    bgr[mask != 0, 1] = (
+        bgr[mask != 0, 0] * 0.3 + bgr[mask != 0, 1] * 0.4 + bgr[mask != 0, 2] * 0.3
+    )
 
 
 def resize_image(inp, width):
@@ -20,7 +22,7 @@ def resize_image(inp, width):
     return cv2.resize(inp, dim, interpolation=cv2.INTER_AREA)
 
 
-def crop_image(inp, w_percent=0, h_percent=10, x_center = 0, y_center = 0):
+def crop_image(inp, w_percent=0, h_percent=10, x_center=0, y_center=0):
     width, height = inp.shape[1], inp.shape[0]
     left = int(x_center + width * w_percent / 2) // 100
     top = int(y_center + height * h_percent / 2) // 100
@@ -57,12 +59,14 @@ def replace_green_screen(inputimg, bg, outputimg):
     bgr[mask != 0] = bg[mask != 0]
 
     # Create a mask of ogre skin
-    shrek_mask = cv2.inRange(hsv, (35, 10, 10), (75, 255, 120))
+    shrek_mask = cv2.inRange(hsv, (15, 10, 10), (85, 255, 200))
     # exclude the green screen from the mask
     shrek_mask = shrek_mask & ~mask
 
     # bgr[shrek_mask != 0] = [0, 0, 255]
-    unshrekify(shrek_mask, bgr)
+
+    # shrek 2: when shrek turns human
+    unshrekify2(shrek_mask, bgr)
 
     bgr = resize_image(bgr, 1080)
 
@@ -80,7 +84,7 @@ for dirpath, dirnames, filenames in os.walk("../raw/"):
             lsphotos.append(os.path.join(dirpath, filename))
 
 bg = cv2.imread("bg_big.jpg")
-#bg = cv2.rotate(bg, cv2.ROTATE_90_COUNTERCLOCKWISE)
+bg = cv2.rotate(bg, cv2.ROTATE_90_COUNTERCLOCKWISE)
 if CROP_W_PERCENT != 0 or CROP_H_PERCENT != 0:
     bg = crop_image(bg, CROP_W_PERCENT, CROP_H_PERCENT, X_CENTER, Y_CENTER)
 i = multiprocessing.Value("i", 0)
