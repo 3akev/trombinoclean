@@ -22,15 +22,6 @@ def resize_image(inp, width):
     return cv2.resize(inp, dim, interpolation=cv2.INTER_AREA)
 
 
-def crop_image(inp, w_percent=0, h_percent=10, x_center=0, y_center=0):
-    width, height = inp.shape[1], inp.shape[0]
-    left = int(x_center + width * w_percent / 2) // 100
-    top = int(y_center + height * h_percent / 2) // 100
-    right = int(x_center + width * (100 - w_percent / 2)) // 100
-    bottom = int(y_center + height * (100 - h_percent / 2)) // 100
-    return inp[top:bottom, left:right]
-
-
 face_cascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 
 
@@ -74,14 +65,18 @@ def replace_green_screen(inputimg, bg, outputimg):
     # Create a mask of the shadow-y green screen areas
     shadow_mask = cv2.inRange(hsv, (hue_low, 229, 35), (hue_high, 255, 150))
 
+    # overexposed green screen
+    overexposed_mask = cv2.inRange(hsv, (hue_low, 75, 230), (hue_high, 110, 255))
+
     # bgr[mask != 0] = [0, 0, 255]
     # bgr[shadow_mask != 0] = [0, 0, 255]
+    # bgr[overexposed_mask != 0] = [0, 0, 255]
 
-    mask = mask | shadow_mask
+    mask = mask | shadow_mask | overexposed_mask
     bgr[mask != 0] = bg[mask != 0]
 
     # Create a mask of ogre skin
-    shrek_mask = cv2.inRange(hsv, (15, 10, 10), (85, 255, 200))
+    shrek_mask = cv2.inRange(hsv, (15, 10, 10), (85, 255, 255))
     # exclude the green screen from the mask
     shrek_mask = shrek_mask & ~mask
 
