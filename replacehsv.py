@@ -3,10 +3,9 @@ import multiprocessing
 import cv2
 import os
 
-CROP_W_PERCENT = 0
-CROP_H_PERCENT = 20
-X_CENTER = 0
-Y_CENTER = -500
+CROP_MARGIN_W_PERCENT = 0.4
+CROP_MARGIN_H_PERCENT = 0.3
+FACE_DETECTION_IMAGE_WIDTH = 100
 RESIZE_WIDTH = 270
 
 
@@ -32,11 +31,35 @@ def crop_image(inp, w_percent=0, h_percent=10, x_center=0, y_center=0):
     return inp[top:bottom, left:right]
 
 
+face_cascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
+
+
+def detect_face(bgr):
+    mult = bgr.shape[1] // FACE_DETECTION_IMAGE_WIDTH
+    tmp = resize_image(bgr, FACE_DETECTION_IMAGE_WIDTH)
+    gray = cv2.cvtColor(tmp, cv2.COLOR_BGR2GRAY)
+
+    face_rect = [x * mult for x in face_cascade.detectMultiScale(gray, 1.1, 4)[0]]
+
+    x, y, w, h = face_rect
+    # bgr[y : y + h, x : x + w] = [0, 0, 255]
+
+    mid_x = x + w // 2
+    mid_y = y + h // 2
+    return mid_x, mid_y
+
+
+def crop_center_on(inp, x, y):
+    width, height = inp.shape[1], inp.shape[0]
+    left = max(0, x - int(width * CROP_MARGIN_W_PERCENT))
+    top = max(0, y - int(height * CROP_MARGIN_H_PERCENT))
+    right = min(width, x + int(width * CROP_MARGIN_W_PERCENT))
+    bottom = min(height, y + int(height * CROP_MARGIN_H_PERCENT))
+    return inp[top:bottom, left:right]
+
+
 def replace_green_screen(inputimg, bg, outputimg):
     bgr = cv2.imread(inputimg)
-
-    if CROP_W_PERCENT != 0 or CROP_H_PERCENT != 0:
-        bgr = crop_image(bgr, CROP_W_PERCENT, CROP_H_PERCENT)
 
     # convert to hsv for easier color selection
     hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
@@ -67,6 +90,8 @@ def replace_green_screen(inputimg, bg, outputimg):
     # shrek 2: when shrek turns human
     unshrekify2(shrek_mask, bgr)
 
+    mid_x, mid_y = detect_face(bgr)
+    bgr = crop_center_on(bgr, mid_x, mid_y)
     bgr = resize_image(bgr, RESIZE_WIDTH)
 
     os.makedirs(os.path.dirname(outputimg), exist_ok=True)
@@ -84,8 +109,6 @@ for dirpath, dirnames, filenames in os.walk("../raw/"):
 
 bg = cv2.imread("bg_big.jpg")
 bg = cv2.rotate(bg, cv2.ROTATE_90_COUNTERCLOCKWISE)
-if CROP_W_PERCENT != 0 or CROP_H_PERCENT != 0:
-    bg = crop_image(bg, CROP_W_PERCENT, CROP_H_PERCENT, X_CENTER, Y_CENTER)
 i = multiprocessing.Value("i", 0)
 
 
