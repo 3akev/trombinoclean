@@ -9,6 +9,7 @@ X_CENTER = 0
 Y_CENTER = -500
 RESIZE_WIDTH = 270
 
+
 def unshrekify2(mask, bgr):
     # weighted average that still leaves some green
     bgr[mask != 0, 1] = (
@@ -32,9 +33,7 @@ def crop_image(inp, w_percent=0, h_percent=10, x_center=0, y_center=0):
 
 
 def replace_green_screen(inputimg, bg, outputimg):
-    bgr = cv2.imread(inputimg, cv2.IMREAD_UNCHANGED)
-    # rotate image, cuz it's actually stored rotated, but an exif tag displays it not-rotated
-    bgr = cv2.rotate(bgr, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    bgr = cv2.imread(inputimg)
 
     if CROP_W_PERCENT != 0 or CROP_H_PERCENT != 0:
         bgr = crop_image(bgr, CROP_W_PERCENT, CROP_H_PERCENT)
