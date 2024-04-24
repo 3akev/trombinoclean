@@ -2,6 +2,7 @@
 import multiprocessing
 import cv2
 import os
+import traceback
 
 CROP_MARGIN_W_PERCENT = 0.4
 CROP_MARGIN_H_PERCENT = 0.3
@@ -109,14 +110,20 @@ i = multiprocessing.Value("i", 0)
 
 def thread_job(file):
     global i
-    filepath = os.path.join("../raw/", file)
-    outfile = os.path.join("../data/", file)
-    replace_green_screen(filepath, bg, outfile)
+    try:
+        filepath = os.path.join("../raw/", file)
+        outfile = os.path.join("../data/", file)
 
-    with i.get_lock():
-        i.value += 1
-        count = i.value
-    print("Processed", file, f"[{count}/{len(lsphotos)}]")
+        if not os.path.exists(filepath):
+            replace_green_screen(filepath, bg, outfile)
+
+        with i.get_lock():
+            i.value += 1
+            count = i.value
+        print("Processed", file, f"[{count}/{len(lsphotos)}]")
+    except:
+        print("Exception in file ", file)
+        traceback.print_exc()
 
 
 def main():
