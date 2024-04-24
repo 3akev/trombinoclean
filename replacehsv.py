@@ -7,7 +7,7 @@ CROP_W_PERCENT = 0
 CROP_H_PERCENT = 20
 X_CENTER = 0
 Y_CENTER = -500
-
+RESIZE_WIDTH = 270
 
 def unshrekify2(mask, bgr):
     # weighted average that still leaves some green
@@ -68,7 +68,7 @@ def replace_green_screen(inputimg, bg, outputimg):
     # shrek 2: when shrek turns human
     unshrekify2(shrek_mask, bgr)
 
-    bgr = resize_image(bgr, 1080)
+    bgr = resize_image(bgr, RESIZE_WIDTH)
 
     os.makedirs(os.path.dirname(outputimg), exist_ok=True)
     cv2.imwrite(outputimg, bgr)
