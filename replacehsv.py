@@ -48,10 +48,24 @@ def detect_face(bgr):
 
 def crop_center_on(inp, x, y):
     width, height = inp.shape[1], inp.shape[0]
-    left = max(0, x - int(width * CROP_MARGIN_W_PERCENT))
-    top = max(0, y - int(height * CROP_MARGIN_H_PERCENT))
-    right = min(width, x + int(width * CROP_MARGIN_W_PERCENT))
-    bottom = min(height, y + int(height * CROP_MARGIN_H_PERCENT))
+    left = x - int(width * CROP_MARGIN_W_PERCENT)
+    top = y - int(height * CROP_MARGIN_H_PERCENT)
+    right = x + int(width * CROP_MARGIN_W_PERCENT)
+    bottom = y + int(height * CROP_MARGIN_H_PERCENT)
+
+    if left < 0:
+        right += -left
+        left = 0
+    if right > width:
+        left -= right - width
+        right = width
+    if top < 0:
+        bottom += -top
+        top = 0
+    if bottom > height:
+        top -= bottom - height
+        bottom = height
+
     return inp[top:bottom, left:right]
 
 
