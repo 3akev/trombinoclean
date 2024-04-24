@@ -6,6 +6,10 @@ import traceback
 
 CROP_MARGIN_W_PERCENT = 0.4
 CROP_MARGIN_H_PERCENT = 0.3
+
+CROP_W_PERCENT = 0
+CROP_H_PERCENT = 20
+
 FACE_DETECTION_IMAGE_WIDTH = 100
 RESIZE_WIDTH = 270
 
@@ -23,6 +27,15 @@ def resize_image(inp, width):
     return cv2.resize(inp, dim, interpolation=cv2.INTER_AREA)
 
 
+def crop_image(inp, w_percent=0, h_percent=10, x_center=0, y_center=0):
+    width, height = inp.shape[1], inp.shape[0]
+    left = int(x_center + width * w_percent / 2) // 100
+    top = int(y_center + height * h_percent / 2) // 100
+    right = int(x_center + width * (100 - w_percent / 2)) // 100
+    bottom = int(y_center + height * (100 - h_percent / 2)) // 100
+    return inp[top:bottom, left:right]
+
+
 face_cascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 
 
@@ -31,7 +44,11 @@ def detect_face(bgr):
     tmp = resize_image(bgr, FACE_DETECTION_IMAGE_WIDTH)
     gray = cv2.cvtColor(tmp, cv2.COLOR_BGR2GRAY)
 
-    face_rect = [x * mult for x in face_cascade.detectMultiScale(gray, 1.1, 4)[0]]
+    faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+    if faces is None or len(faces) == 0:
+        return None
+
+    face_rect = [x * mult for x in faces[0]]
 
     x, y, w, h = face_rect
     # bgr[y : y + h, x : x + w] = [0, 0, 255]
@@ -86,8 +103,13 @@ def replace_green_screen(inputimg, bg, outputimg):
     # shrek 2: when shrek turns human
     unshrekify2(shrek_mask, bgr)
 
-    mid_x, mid_y = detect_face(bgr)
-    bgr = crop_center_on(bgr, mid_x, mid_y)
+    center = detect_face(bgr)
+    if center is None:
+        bgr = crop_image(bgr, CROP_W_PERCENT, CROP_H_PERCENT)
+    else:
+        mid_x, mid_y = center
+        bgr = crop_center_on(bgr, mid_x, mid_y)
+
     bgr = resize_image(bgr, RESIZE_WIDTH)
 
     os.makedirs(os.path.dirname(outputimg), exist_ok=True)
