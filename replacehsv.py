@@ -136,7 +136,7 @@ def thread_job(file):
         filepath = os.path.join("../raw/", file)
         outfile = os.path.join("../data/", file)
 
-        if not os.path.exists(filepath):
+        if not os.path.exists(outfile):
             replace_green_screen(filepath, bg, outfile)
 
         with i.get_lock():
