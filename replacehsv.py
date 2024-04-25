@@ -4,11 +4,20 @@ import cv2
 import os
 import traceback
 
+USE_FACE_DETECTION = True
+
 CROP_MARGIN_W_PERCENT = 0.4
 CROP_MARGIN_H_PERCENT = 0.3
 
 FACE_DETECTION_IMAGE_WIDTH = 100
 RESIZE_WIDTH = 270
+
+SOURCE_DIR = "../raw/"
+OUTPUT_DIR = "../data/"
+
+BACKGROUND_IMAGE = "bg_big.jpg"
+
+INPUT_FORMATS = ["jpg", "jpeg", "png"]
 
 
 def unshrekify2(mask, bgr):
@@ -105,11 +114,11 @@ def replace_green_screen(inputimg, bg, outputimg):
     # shrek 2: when shrek turns human
     unshrekify2(shrek_mask, bgr)
 
-    center = detect_face(bgr)
-    if center is not None:
-        mid_x, mid_y = center
-    else:
-        mid_x, mid_y = bgr.shape[1] // 2, bgr.shape[0] // 2
+    mid_x, mid_y = bgr.shape[1] // 2, bgr.shape[0] // 2
+    if USE_FACE_DETECTION:
+        center = detect_face(bgr)
+        if center is not None:
+            mid_x, mid_y = center
 
     bgr = crop_center_on(bgr, mid_x, mid_y)
     bgr = resize_image(bgr, RESIZE_WIDTH)
@@ -121,22 +130,22 @@ def replace_green_screen(inputimg, bg, outputimg):
 
 
 lsphotos = []
-for dirpath, dirnames, filenames in os.walk("../raw/"):
-    dirpath = os.path.relpath(dirpath, "../raw/")
+for dirpath, dirnames, filenames in os.walk(SOURCE_DIR):
+    dirpath = os.path.relpath(dirpath, SOURCE_DIR)
     for filename in filenames:
-        if filename.endswith(".JPG"):
+        base, ext = os.path.splitext(filename)[1]
+        if ext[1:].lower() in INPUT_FORMATS:
             lsphotos.append(os.path.join(dirpath, filename))
 
-bg = cv2.imread("bg_big.jpg")
-bg = cv2.rotate(bg, cv2.ROTATE_90_COUNTERCLOCKWISE)
+bg = cv2.imread(BACKGROUND_IMAGE)
 i = multiprocessing.Value("i", 0)
 
 
 def thread_job(file):
     global i
     try:
-        filepath = os.path.join("../raw/", file)
-        outfile = os.path.join("../data/", file)
+        filepath = os.path.join(SOURCE_DIR, file)
+        outfile = os.path.join(OUTPUT_DIR, file)
 
         if not os.path.exists(outfile):
             replace_green_screen(filepath, bg, outfile)
