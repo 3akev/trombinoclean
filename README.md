@@ -24,6 +24,9 @@ the beginning of the file.
 | BACKGROUND_IMAGE            | string (path)          | Path to image used to replace green screen                                  |
 
 
-NB: Face detection eats ram like a hungry hungry hippo. If the OOM killer pays
-you a visit, try reducing `FACE_DETECTION_IMAGE_WIDTH` in `replacehsv.py`, or
-settle for fallback cropping.
+## Notes
+- Face detection eats ram like a hungry hungry hippo. If the OOM killer pays
+  you a visit, try reducing `FACE_DETECTION_IMAGE_WIDTH` in `replacehsv.py`, or
+  settle for fallback cropping.
+- The source images and the background MUST have the same dimensions. 
+  The script does not handle resizing the background image.
