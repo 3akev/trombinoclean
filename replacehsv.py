@@ -133,7 +133,7 @@ lsphotos = []
 for dirpath, dirnames, filenames in os.walk(SOURCE_DIR):
     dirpath = os.path.relpath(dirpath, SOURCE_DIR)
     for filename in filenames:
-        base, ext = os.path.splitext(filename)[1]
+        ext = os.path.splitext(filename)[1]
         if ext[1:].lower() in INPUT_FORMATS:
             lsphotos.append(os.path.join(dirpath, filename))
 
