@@ -19,6 +19,8 @@ BACKGROUND_IMAGE = "bg_big.jpg"
 
 INPUT_FORMATS = ["jpg", "jpeg", "png"]
 
+NUM_PROCESSES = None
+
 
 def unshrekify2(mask, bgr):
     # weighted average that still leaves some green
@@ -160,7 +162,7 @@ def thread_job(file):
 
 
 def main():
-    with multiprocessing.Pool() as pool:
+    with multiprocessing.Pool(NUM_PROCESSES) as pool:
         pool.map(thread_job, lsphotos)
 
     print("Done")

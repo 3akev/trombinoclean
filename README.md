@@ -22,11 +22,12 @@ the beginning of the file.
 | SOURCE_DIR                  | string (path)          | Path to directory containing image files                                    |
 | OUTPUT_DIR                  | string (path)          | Path to directory to output image files                                     |
 | BACKGROUND_IMAGE            | string (path)          | Path to image used to replace green screen                                  |
+| NUM_PROCESSES               | int, None              | Number of images to process in parallel. None uses number of CPUs           |
 
 
 ## Notes
 - Face detection eats ram like a hungry hungry hippo. If the OOM killer pays
-  you a visit, try reducing `FACE_DETECTION_IMAGE_WIDTH` in `replacehsv.py`, or
+  you a visit, try reducing `FACE_DETECTION_IMAGE_WIDTH` or `NUM_PROCESSES` in `replacehsv.py`, or
   settle for fallback cropping.
 - The source images and the background MUST have the same dimensions. 
   The script does not handle resizing the background image.
